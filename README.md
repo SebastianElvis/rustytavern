@@ -9,6 +9,8 @@ It runs on your computer. It has no web server and no web frontend.
 > [!WARNING]
 > RustyTavern is alpha software. The data formats and the plugin API can change in any release.
 
+![RustyTavern terminal demo](docs/assets/demo.gif)
+
 ## Features
 
 - Import character cards (PNG, JSON, CHARX) from a file, Chub, or RisuRealm.
@@ -32,7 +34,8 @@ cargo install --locked --git https://github.com/SebastianElvis/rustytavern rusty
 ```
 
 The command installs the `rustytavern` binary.
-Prebuilt binaries for macOS and Linux are on the [releases page](https://github.com/SebastianElvis/rustytavern/releases).
+
+Prebuilt binaries for macOS and Linux will be published with the first GitHub release. Windows binaries are not available yet.
 
 ## Quick start
 
