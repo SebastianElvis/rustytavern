@@ -13,7 +13,10 @@ use std::{
 
 /// This function returns a stable SHA-256 identity.
 pub fn digest(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    Sha256::digest(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
 }
 
 pub fn now_ms() -> i64 {
@@ -91,12 +94,7 @@ pub fn native_artifact_hash() -> Result<String> {
     if let Some(hash) = HASH.get() {
         return Ok(hash.clone());
     }
-    let mut hasher = Sha256::new();
-    std::io::copy(
-        &mut std::fs::File::open(std::env::current_exe()?)?,
-        &mut hasher,
-    )?;
-    let hash = format!("{:x}", hasher.finalize());
+    let hash = digest(&std::fs::read(std::env::current_exe()?)?);
     let _ = HASH.set(hash.clone());
     Ok(hash)
 }
