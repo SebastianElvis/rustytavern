@@ -584,17 +584,18 @@ The default export sets `includes_prompt_traces` to `false`. The exporter sets e
 The `--include-traces` flag retains the compiled plan, prepared request, and phase trace. Both modes retain conversation text, input snapshots, saved enrichment, and plugin state.
 The flag controls compiled request traces only.
 
-The [version 3 session schema](schemas/session-v3.schema.json) documents the historical version 3 format. That schema does not describe version 4 worldbook archives.
+The [version 3 session schema](schemas/session-v3.schema.json) documents the historical version 3 format. The [version 4 session schema](schemas/session-v4.schema.json) adds the worldbook archives.
 The version 4 reader and writer use the Rust types and runtime validation. The [session module](../crates/session/src/records.rs) defines the corresponding Rust types.
 
 | Field | Content |
 | --- | --- |
-| `session` | The record contains current bindings, options, selected head, and version. |
+| `session` | The record contains current bindings, prompt options, selected head, title, hidden messages, and version. |
 | `characters` | The archive contains the current card and every referenced earlier card revision. |
 | `personas` | The archive contains the current persona and every referenced earlier persona revision. |
 | `messages` | The array contains the complete parent tree in insertion order. |
-| `generations` | The array contains statuses, drafts, snapshots, enrichment, usage, errors, and acceptance links. |
+| `generations` | The array contains modes, statuses, drafts, snapshots, enrichment, usage, errors, and acceptance links. Snapshots record the selected worldbooks. |
 | `plugin_state` | The array contains opaque state revisions for referenced plugin namespaces. |
+| `worldbooks` | The archive contains the books referenced by the session, its configuration revisions, and its generation snapshots. |
 
 The exporter reads these records in one SQLite read transaction. The exporter uses card and persona IDs from the session, configuration revisions, and generation snapshots.
 The exporter derives state namespaces from the recorded compositions and pinned state inputs. The exporter retains every stored revision in those namespaces.

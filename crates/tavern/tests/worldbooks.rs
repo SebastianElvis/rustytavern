@@ -1,3 +1,4 @@
+use std::io::{Cursor, Write};
 use std::sync::{Arc, Mutex};
 
 use rustytavern::{
@@ -82,14 +83,30 @@ async fn revisions_pin_books_in_requests_replay_and_exports_after_restart() {
     store.save_worldbook(&old).unwrap();
     store.save_worldbook(&old).unwrap();
     assert_eq!(store.list("worldbook").unwrap().len(), 1);
+    let mut initial_ids = vec![old.id().into()];
+    for index in 0..15 {
+        let archive = book(&format!("Archive {index}"));
+        store.save_worldbook(&archive).unwrap();
+        initial_ids.push(archive.id().into());
+    }
+
+    let mut target = target(store.as_ref(), initial_ids);
+    let mut archive = zip::ZipWriter::new(Cursor::new(Vec::new()));
+    archive
+        .start_file("card.json", zip::write::SimpleFileOptions::default())
+        .unwrap();
+    archive
+        .write_all(include_bytes!("fixtures/synthetic/card-v3.json"))
+        .unwrap();
+    let card = Card::import(&archive.finish().unwrap().into_inner()).unwrap();
+    assert_eq!(card.format, "charx");
+    store.save_card(&card).unwrap();
+    target.character_id = card.id;
+
     let capture = Arc::new(Mutex::new(Vec::new()));
     let runtime = Runtime::new(store.clone()).with_provider(recorder(&capture));
     let session = runtime
-        .create_session(
-            &target(store.as_ref(), vec![old.id().into()]),
-            None,
-            ProviderConfig::default(),
-        )
+        .create_session(&target, None, ProviderConfig::default())
         .await
         .unwrap();
     let inspected = runtime
@@ -135,9 +152,28 @@ async fn revisions_pin_books_in_requests_replay_and_exports_after_restart() {
     );
     let export = store.export_session(&session.id, true).unwrap();
     assert_eq!(export.schema_version, 4);
-    assert_eq!(export.worldbooks.len(), 2);
+    assert_eq!(export.worldbooks.len(), 17);
     let bytes = export.encode().unwrap();
     SessionExport::decode(&bytes).unwrap();
+    let document: Value = serde_json::from_slice(&bytes).unwrap();
+    let v3_schema: Value =
+        serde_json::from_str(include_str!("../../../docs/schemas/session-v3.schema.json")).unwrap();
+    let v4_schema: Value =
+        serde_json::from_str(include_str!("../../../docs/schemas/session-v4.schema.json")).unwrap();
+    let v3 = jsonschema::validator_for(&v3_schema).unwrap();
+    assert!(
+        !v3.is_valid(&document),
+        "the version 3 schema must reject a version 4 export"
+    );
+    let v4 = jsonschema::validator_for(&v4_schema).unwrap();
+    assert!(document["characters"][0]["decoder"].is_null());
+    v4.validate(&document).unwrap();
+
+    let mut legacy = document;
+    let original = export.worldbooks[0].export_original();
+    legacy["worldbooks"][0]["original"] = json!(original);
+    v4.validate(&legacy).unwrap();
+    SessionExport::decode(&serde_json::to_vec(&legacy).unwrap()).unwrap();
     for corruption in ["missing", "document", "snapshot", "schema"] {
         let mut invalid: Value = serde_json::from_slice(&bytes).unwrap();
         match corruption {
